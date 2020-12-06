@@ -1,4 +1,4 @@
-module uart #(
+module uart_tx #(
     parameter BAUDRATE=100000000,
     parameter SYSCLOCK=100000000
 ) (
