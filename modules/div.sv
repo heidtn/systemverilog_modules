@@ -1,3 +1,4 @@
+`default_nettype none
 
 module div #(
     parameter WIDTH=16,
@@ -44,7 +45,7 @@ module div #(
     end
 
     always @(posedge i_clk) begin
-        if(i_start) begin
+        if(i_start && done) begin
             o_valid <= 0;
             o_result <= 0;
             i <= 0;

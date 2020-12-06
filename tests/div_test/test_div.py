@@ -23,6 +23,7 @@ async def test_two_nums(a, b, dut):
     dut.i_start <= 0
 
     for i in range(WIDTH+1):
+        #print(f"done value: {dut.done.value}")
         await RisingEdge(dut.i_clk)
     
     expected = sim_div(a, b, QBITS)
@@ -30,6 +31,7 @@ async def test_two_nums(a, b, dut):
         expected *= -1
     
     print(f"Got: {dut.o_result.value.signed_integer} Should be {expected}")
+    print("")
     assert dut.o_result.value.signed_integer == expected
 
 @cocotb.test()
@@ -39,8 +41,8 @@ async def test_div(dut):
     clock = Clock(dut.i_clk, 10, units="ns")  # Create a 10us period clock on port clk
     cocotb.fork(clock.start())  # Start the clock
     
-    nums1 = [8.5, 4.0, 1.241412, -3, -0.5, 22, 4]
-    nums2 = [3.3, -2.5, 1.5, 4.4, 1, 3.3, -1]
+    nums1 = [8.5, 4.0, 1.241412, -3, -0.5, 22, 4, 0]
+    nums2 = [3.3, -2.5, 1.5, 4.4, 3, 1, 3.3, -1]
 
     n1 = 12.123
     n2 = 1.123
