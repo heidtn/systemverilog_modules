@@ -56,10 +56,10 @@ module div #(
                 // Convert to positive numbers if negative
                 if(i_num[WIDTH-1]) begin
                     num <= (~i_num + 1'b1);
-                    {accum, quotient} <= {{WIDTH-1{1'b0}}, (~i_num + 1'b1), 1'b0};
+                    {accum, quotient} <= {{WIDTH-1{1'b0}}, (~i_num + 1'b1), {QBITS{1'b0}}};
                 end else begin
                     num <= i_num;
-                    {accum, quotient} <= {{WIDTH-1{1'b0}}, i_num, 1'b0};
+                    {accum, quotient} <= {{WIDTH-1{1'b0}}, i_num, {QBITS{1'b0}}};
                 end
 
                 if(i_denom[WIDTH-1]) begin
@@ -77,13 +77,13 @@ module div #(
                 done <= 0;
             end
         end else if(!done) begin
-            if (i == WIDTH-1) begin
+            if (i == WIDTH) begin
                 done <= 1;
                 o_valid <= 1;
                 if(is_positive) begin
-                    o_result <= ((quotient_next << QBITS) | (accum_next >> 2)); // TODO(heidt) why left shift 2? Should only be 1...  
+                    o_result <= ((quotient_next)); // TODO(heidt) why left shift 2? Should only be 1...  
                 end else begin
-                    o_result <= ~((quotient_next << QBITS) | (accum_next >> 2)) + 1; // TODO(heidt) why left shift 2? Should only be 1...  
+                    o_result <= ~((quotient_next)) + 1; // TODO(heidt) why left shift 2? Should only be 1...  
                 end
             end else begin
                 i <= i + 1;

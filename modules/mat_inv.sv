@@ -3,13 +3,13 @@
 
 module mat_inv #(
     parameter ORDER=3,
-    parameter WIDTH=16,
-    parameter QBITS=8
+    parameter signed WIDTH=16,
+    parameter signed QBITS=8
 ) (
     input wire i_clk,
     input wire i_start,
     input wire [WIDTH-1:0]i_mat[ORDER*ORDER],
-    output logic [WIDTH-1:0]o_mat[ORDER*ORDER],
+    output logic signed [WIDTH-1:0]o_mat[ORDER*ORDER],
     output logic o_done
 );
     // TODO(heidt) check for singular matrices in 0 divide
@@ -19,13 +19,14 @@ module mat_inv #(
     typedef enum {LOAD, DELAY, DIVIDE, READY} divider_substate_t;
     state_t state;
     divider_substate_t divider_state;
-    logic [WIDTH-1:0]mat[ORDER*ORDER];
+    logic signed [WIDTH-1:0]mat[ORDER*ORDER];
     logic [ORDER:0] row;
     logic [ORDER:0] col;
+    logic signed [WIDTH*2-1]temp_vector[ORDER+ORDER];
 
     logic [WIDTH-1:0] div_num;
     logic [WIDTH-1:0] div_denom;
-    logic [WIDTH-1:0] div_result;
+    logic signed [WIDTH-1:0] div_result;
     logic div_start;
     logic div_done;
     logic div_valid;
@@ -33,6 +34,8 @@ module mat_inv #(
                                              .i_start(div_start), .o_result(div_result), .done(div_done), .o_valid(div_valid));
 
     initial begin
+        row = 0;
+        col = 0;
         o_done = 0; 
         state = IDLE;
         divider_state = LOAD;
@@ -44,7 +47,27 @@ module mat_inv #(
     end
 
     always @(*) begin
-        
+       if(state == DIAGONALIZE && divider_state == READY) begin
+            if(row != col) begin
+               for(int k = 0; k < ORDER; k++) begin
+                   temp_vector[k] = mat[col*ORDER + k] - ((mat[row*ORDER + k] * div_result) >> QBITS);
+                   temp_vector[k+ORDER] = o_mat[col*ORDER + k] - ((o_mat[row*ORDER + k] * div_result) >> QBITS);
+                   //mat[col*ORDER + k] <= mat[col*ORDER + k] - ((mat[row*ORDER + k] * div_result) >> QBITS);
+                   //o_mat[col*ORDER + k] <= o_mat[col*ORDER + k] - ((o_mat[row*ORDER + k] * div_result) >> QBITS);
+                   //o_mat[col*ORDER + k] <= ((o_mat[row*ORDER + k] * div_result) >> QBITS);
+               end 
+            end
+       end else if(state == INVERT && divider_state == READY) begin
+            for(int k = 0; k < ORDER; k++) begin
+                temp_vector[k] = (mat[row*ORDER + col] * div_result) >> QBITS;
+                temp_vector[k+ORDER] = (o_mat[row*ORDER + col] * div_result) >> QBITS;
+            end
+       end else if(state == INTERCHANGE) begin
+           for(int k = 0; k < ORDER; k++) begin
+               temp_vector[k] = mat[row*ORDER + k];
+               temp_vector[k+ORDER] = o_mat[row*ORDER + k];
+           end
+       end
     end
 
     always @(posedge i_clk) begin
@@ -74,6 +97,7 @@ module mat_inv #(
                 state <= INTERCHANGE;
                 row <= ORDER-1; // prepare row index for diagonalize step
             end
+
             INTERCHANGE: begin
                 if(row == 0) begin
                     state <= DIAGONALIZE;
@@ -84,15 +108,16 @@ module mat_inv #(
                     // interchange rows of matrix
                     if(mat[(row-1)*ORDER] < mat[row*ORDER]) begin
                         for(int j = 0; j < ORDER; j++) begin
-                            mat[(row-1)*ORDER + j] <= mat[row*ORDER + j];
+                            mat[(row-1)*ORDER + j] <= temp_vector[j];
                             mat[(row)*ORDER + j] <= mat[(row-1)*ORDER + j];
-                            o_mat[(row-1)*ORDER + j] <= o_mat[row*ORDER + j];
+                            o_mat[(row-1)*ORDER + j] <= temp_vector[j+ORDER];
                             o_mat[(row)*ORDER + j] <= o_mat[(row-1)*ORDER + j];
                         end
                     end
                     row <= row - 1;
                 end
             end 
+
             DIAGONALIZE: begin
                 if(row == ORDER) begin
                     state <= INVERT;
@@ -122,7 +147,7 @@ module mat_inv #(
                         end
                         READY: begin
                             divider_state <= LOAD;
-                            if(col < ORDER) begin
+                            if(col < ORDER-1) begin
                                 col <= col + 1;
                             end else begin
                                 col <= 0;
@@ -131,9 +156,8 @@ module mat_inv #(
 
                             if(row != col) begin
                                for(int k = 0; k < ORDER; k++) begin
-                                   mat[col*ORDER + k] <= mat[col*ORDER + k] - ((mat[row*ORDER + k] * div_result) >> QBITS);
-                                   //o_mat[col*ORDER + k] <= o_mat[col*ORDER + k] - ((o_mat[row*ORDER + k] * div_result) >> QBITS);
-                                   o_mat[col*ORDER + k] <= ((o_mat[row*ORDER + k] * div_result) >> QBITS);
+                                   mat[col*ORDER + k] <= temp_vector[k];
+                                   o_mat[col*ORDER + k] <= temp_vector[k+ORDER];
                                end 
                             end
                         end
@@ -151,7 +175,7 @@ module mat_inv #(
                 end else begin
                     case(divider_state)
                         LOAD: begin
-                            if(row == col) begin state <= READY; end // shortcut into skipping this element
+                            if(row == col) begin divider_state <= READY; end // shortcut into skipping this element
                             else begin
                                 div_num <= 'b1 << QBITS;
                                 div_denom <= mat[row*ORDER + row];
@@ -170,15 +194,10 @@ module mat_inv #(
                             end
                         end
                         READY: begin
-                            if(col < ORDER) begin
-                                col <= col + 1;
-                            end else begin
-                                col <= 0;
-                                row <= row + 1;
-                            end
-
+                            row <= row + 1;
                             for(int k = 0; k < ORDER; k++) begin
-                                o_mat[row*ORDER + col] <= (o_mat[row*ORDER + col] * div_result) >> QBITS;
+                                mat[row*ORDER + col] <= temp_vector[k];
+                                o_mat[row*ORDER + col] <= temp_vector[k+ORDER];
                             end 
                         end
                     endcase 
