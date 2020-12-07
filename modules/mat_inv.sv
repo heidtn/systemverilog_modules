@@ -52,15 +52,12 @@ module mat_inv #(
                for(int k = 0; k < ORDER; k++) begin
                    temp_vector[k] = mat[col*ORDER + k] - ((mat[row*ORDER + k] * div_result) >> QBITS);
                    temp_vector[k+ORDER] = o_mat[col*ORDER + k] - ((o_mat[row*ORDER + k] * div_result) >> QBITS);
-                   //mat[col*ORDER + k] <= mat[col*ORDER + k] - ((mat[row*ORDER + k] * div_result) >> QBITS);
-                   //o_mat[col*ORDER + k] <= o_mat[col*ORDER + k] - ((o_mat[row*ORDER + k] * div_result) >> QBITS);
-                   //o_mat[col*ORDER + k] <= ((o_mat[row*ORDER + k] * div_result) >> QBITS);
                end 
             end
        end else if(state == INVERT && divider_state == READY) begin
             for(int k = 0; k < ORDER; k++) begin
-                temp_vector[k] = (mat[row*ORDER + col] * div_result) >> QBITS;
-                temp_vector[k+ORDER] = (o_mat[row*ORDER + col] * div_result) >> QBITS;
+                temp_vector[k] = (mat[row*ORDER + k] * div_result) >> QBITS;
+                temp_vector[k+ORDER] = (o_mat[row*ORDER + k] * div_result) >> QBITS;
             end
        end else if(state == INTERCHANGE) begin
            for(int k = 0; k < ORDER; k++) begin
@@ -175,13 +172,10 @@ module mat_inv #(
                 end else begin
                     case(divider_state)
                         LOAD: begin
-                            if(row == col) begin divider_state <= READY; end // shortcut into skipping this element
-                            else begin
-                                div_num <= 'b1 << QBITS;
-                                div_denom <= mat[row*ORDER + row];
-                                div_start <= 1;
-                                divider_state <= DELAY;
-                            end
+                            div_num <= 'b1 << QBITS;
+                            div_denom <= mat[row*ORDER + row];
+                            div_start <= 1;
+                            divider_state <= DELAY;
                         end
                         DELAY: begin
                             // delay a single cycle to ensure the divide operation begins
@@ -196,9 +190,10 @@ module mat_inv #(
                         READY: begin
                             row <= row + 1;
                             for(int k = 0; k < ORDER; k++) begin
-                                mat[row*ORDER + col] <= temp_vector[k];
-                                o_mat[row*ORDER + col] <= temp_vector[k+ORDER];
+                                mat[row*ORDER + k] <= temp_vector[k];
+                                o_mat[row*ORDER + k] <= temp_vector[k+ORDER];
                             end 
+                            divider_state <= LOAD;
                         end
                     endcase 
                 end

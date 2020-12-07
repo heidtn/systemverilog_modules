@@ -39,14 +39,14 @@ def python_sim(arr):
                 for k in range(3):
                     arr[j,k] -= arr[i,k]*temp
                     augment[j,k] -= augment[i,k]*temp
-
-                    print(f"i {i}, j {j} expected after cancelling: \n", augment, "\n", arr)
+                print(f"i {i}, j {j}, temp {temp} expected after cancelling: \n", augment, "\n", arr)
 
     for i in range(3):
         temp = arr[i,i]
         for j in range(3):
             arr[i,j] /= temp
             augment[i,j] /= temp
+        print(f"i {i}, j {j}, temp {temp} expected after inverting: \n", augment, "\n", arr)
 
     print("expected after inverting: \n", augment, "\n", arr)
 
@@ -87,3 +87,5 @@ async def test_mat_inv(dut):
     for i in range(256):
         await RisingEdge(dut.i_clk)
         await print_state(dut)
+        if(dut.o_done == 1):
+            break
