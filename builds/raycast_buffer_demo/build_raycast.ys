@@ -1,0 +1,3 @@
+read_verilog -I../../modules buffer_test.sv
+synth_ice40 -blif raycast.blif  -top buffer_test -json buffer_test.json
+
